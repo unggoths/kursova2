@@ -11,11 +11,12 @@ DATABASE_URL = "sqlite:///properties.db"
 engine = create_engine(DATABASE_URL)
 Session = sessionmaker(bind=engine)
 
-TOKEN = "8104879861:AAEu8DGjBeocnwQ4xkyp48GOoC0kZshwf30"
+TOKEN = "8104879861:AAEu8DGjBeocnwQ4xkyp48GOoC0kZshwf30"  # Use a placeholder or update with your actual bot token
 bot = telebot.TeleBot(TOKEN)
 
 user_data = {}
 STEPS = ['district', 'room', 'area', 'budget']
+
 
 def ensure_user_data(chat_id):
     if chat_id not in user_data:
@@ -25,10 +26,14 @@ def get_prev_step(chat_id):
     current_index = STEPS.index(user_data[chat_id]['current_step'])
     return STEPS[max(0, current_index - 1)]
 
+
 def send_filtered_properties(bot, chat_id, filtered_properties):
     if not filtered_properties:
-        bot.send_message(chat_id, "На жаль, за вашими критеріями нічого не знайдено. ☹️",
-                         reply_markup=create_main_menu_keyboard())
+        bot.send_message(
+            chat_id,
+            "На жаль, за вашими критеріями нічого не знайдено. ☹️",
+            reply_markup=create_main_menu_keyboard()
+        )
         return
 
     for prop in filtered_properties:
@@ -44,7 +49,6 @@ def send_filtered_properties(bot, chat_id, filtered_properties):
         for index, photo in enumerate(photos):
             if os.path.exists(photo):
                 if index == 0:
-                    # Add caption only to the first photo
                     media_group.append(types.InputMediaPhoto(open(photo, 'rb'), caption=caption))
                 else:
                     media_group.append(types.InputMediaPhoto(open(photo, 'rb')))
@@ -53,6 +57,13 @@ def send_filtered_properties(bot, chat_id, filtered_properties):
 
         if media_group:
             bot.send_media_group(chat_id, media=media_group)
+
+    bot.send_message(
+        chat_id,
+        "Це всі знайдені квартири за вашими критеріями.",
+        reply_markup=create_main_menu_keyboard()
+    )
+
 
 def apply_filters(query, filter_name, filter_value):
     if filter_name == 'district':
@@ -84,10 +95,11 @@ def apply_filters(query, filter_name, filter_value):
                 pass
         else:
             try:
-                budget_value = int(filter_value)
+                budget_value = int(filter_value.split(' ')[1])
                 return query.filter(Property.budget <= budget_value)
             except ValueError:
                 pass
+
     return query
 
 
@@ -105,6 +117,7 @@ def filter_properties(session, user_data):
     filtered_properties = query.all()
     print(f"Знайдені властивості: {filtered_properties}")
     return filtered_properties
+
 
 def handle_choice(chat_id, data, message_id):
     ensure_user_data(chat_id)
@@ -142,6 +155,7 @@ def handle_choice(chat_id, data, message_id):
         send_filtered_properties(bot, chat_id, filtered_properties)
         session.close()
 
+
 @bot.callback_query_handler(func=lambda call: True)
 def handle_query(call):
     chat_id = call.message.chat.id
@@ -163,6 +177,7 @@ def handle_query(call):
     else:
         handle_choice(chat_id, data, call.message.message_id)
 
+
 @bot.message_handler(commands=['start'])
 def handle_start(message):
     chat_id = message.chat.id
@@ -173,9 +188,11 @@ def handle_start(message):
                        "В якому районі Ви плануєте винаймати квартиру? 🤔")
     bot.send_message(chat_id, welcome_message, reply_markup=create_district_keyboard())
 
+
 @bot.message_handler(commands=['test'])
 def handle_test(message):
     bot.send_message(message.chat.id, "Тестове повідомлення.")
+
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('current_step') == 'area')
 def handle_area(message):
@@ -190,6 +207,7 @@ def handle_area(message):
     user_data[chat_id]['current_step'] = 'budget'
     bot.send_message(chat_id, "📏 Площа помешкання вказана. Тепер вкажіть Ваш бюджет.",
                      reply_markup=create_budget_keyboard())
+
 
 if __name__ == '__main__':
     bot.polling(none_stop=True)

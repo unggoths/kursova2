@@ -20,6 +20,12 @@ user_data = {}
 STEPS = ['district', 'room', 'area', 'budget']
 
 
+# Utility function to ensure user data is initialized
+def ensure_user_data(chat_id):
+    if chat_id not in user_data:
+        user_data[chat_id] = {'current_step': 'district'}
+
+
 # Інші функції залишаються без змін
 def get_prev_step(chat_id):
     current_index = STEPS.index(user_data[chat_id]['current_step'])
@@ -32,12 +38,12 @@ def send_filtered_properties(chat_id, filtered_properties):
         return
 
     for prop in filtered_properties:
-        message = (f"Опис: {prop.description}\n"
-                   f"Район: {prop.district}\n"
-                   f"Кімнат: {prop.rooms}\n"
-                   f"Площа: {prop.area} кв.м\n"
-                   f"Бюджет: {prop.budget} грн\n"
-                   f"Контактний номер: {prop.phone_number}\n")
+        message = (f"📝 Опис: {prop.description}\n"
+                   f"📍 Район: {prop.district}\n"
+                   f"🛏️ Кімнат: {prop.rooms}\n"
+                   f"📐 Площа: {prop.area} кв.м\n"
+                   f"💵 Бюджет: {prop.budget} $\n"
+                   f"📞 Контактний номер: {prop.phone_number}\n")
         bot.send_message(chat_id, message)
 
         photos = prop.photos.split('|')
@@ -67,11 +73,14 @@ def apply_filters(query, filter_name, filter_value):
             min_area = int(filter_value.split(' ')[1])
             return query.filter(Property.area >= min_area)
     elif filter_name == 'budget':
-        budget_value = int(filter_value.split(' ')[0])
-        if 'від' in filter_value:
-            return query.filter(Property.budget >= budget_value)
-        else:
-            return query.filter(Property.budget <= budget_value)
+        try:
+            budget_value = int(filter_value.split(' ')[0])
+            if 'від' in filter_value:
+                return query.filter(Property.budget >= budget_value)
+            else:
+                return query.filter(Property.budget <= budget_value)
+        except ValueError:
+            pass  # Skip improper filter values
     return query
 
 
@@ -92,6 +101,7 @@ def filter_properties(session, user_data):
 
 
 def handle_choice(chat_id, data, message_id):
+    ensure_user_data(chat_id)
     current_step = user_data[chat_id]['current_step']
     user_data[chat_id][current_step] = data.split('_')[1]
 
@@ -122,6 +132,8 @@ def handle_query(call):
     chat_id = call.message.chat.id
     data = call.data
 
+    ensure_user_data(chat_id)
+
     if data == 'back':
         prev_step = get_prev_step(chat_id)
         user_data[chat_id]['current_step'] = prev_step
@@ -134,12 +146,12 @@ def handle_query(call):
 @bot.message_handler(commands=['start'])
 def handle_start(message):
     chat_id = message.chat.id
+    ensure_user_data(chat_id)
     user_data[chat_id] = {'current_step': 'district'}
     welcome_message = ("👋 Привіт! Ласкаво просимо до нашого ріелторського бота!\n"
                        "Ми тут, щоб допомогти Вам знайти ідеальне житло в ідеальному місті\n\n"
                        "В якому районі Ви плануєте винаймати квартиру? 🤔")
     bot.send_message(chat_id, welcome_message, reply_markup=create_district_keyboard())
-
 
 
 @bot.message_handler(commands=['test'])
@@ -158,7 +170,8 @@ def handle_area(message):
 
     user_data[chat_id]['area'] = area
     user_data[chat_id]['current_step'] = 'budget'
-    bot.send_message(chat_id, "📏 Площа помешкання вказана. Тепер вкажіть Ваш бюджет.", reply_markup=create_budget_keyboard())
+    bot.send_message(chat_id, "📏 Площа помешкання вказана. Тепер вкажіть Ваш бюджет.",
+                     reply_markup=create_budget_keyboard())
 
 
 if __name__ == '__main__':

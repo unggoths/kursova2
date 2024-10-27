@@ -10,6 +10,18 @@ def create_district_keyboard():
     keyboard.add(*buttons)
     return keyboard
 
+def create_main_back_menu_keyboard():
+    keyboard = types.InlineKeyboardMarkup()
+    main_menu_button = types.InlineKeyboardButton(text="На головну", callback_data='main_menu')
+    back_button = types.InlineKeyboardButton(text="Назад", callback_data='back')
+    keyboard.add(main_menu_button, back_button)
+    return keyboard
+
+def create_main_menu_keyboard():
+    keyboard = types.InlineKeyboardMarkup()
+    button = types.InlineKeyboardButton("На головну", callback_data="main_menu")
+    keyboard.add(button)
+    return keyboard
 
 def create_room_keyboard():
     keyboard = types.InlineKeyboardMarkup()
@@ -21,7 +33,7 @@ def create_room_keyboard():
 
 def create_budget_keyboard():
     keyboard = types.InlineKeyboardMarkup()
-    budgets = ["400", "500", "600", "700", "800", "900", "1000"]
+    budgets = ["до 400", "до 500", "до 600", "до 700", "до 800", "до 900", "до 1000", "від 1000"]
     buttons = [types.InlineKeyboardButton(text=budget + " $", callback_data=f'budget_{budget}') for budget in budgets]
     keyboard.add(*buttons)
     return keyboard

@@ -4,23 +4,29 @@ from telebot import types
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from models import Property
-from keyboards import create_district_keyboard, get_keyboard, \
-    create_budget_keyboard, create_main_menu_keyboard
+from keyboards import create_district_keyboard, get_keyboard, create_budget_keyboard, create_main_menu_keyboard
 
 DATABASE_URL = "sqlite:///properties.db"
 engine = create_engine(DATABASE_URL)
 Session = sessionmaker(bind=engine)
 
-TOKEN = "8104879861:AAEu8DGjBeocnwQ4xkyp48GOoC0kZshwf30"  # Use a placeholder or update with your actual bot token
+TOKEN = "8104879861:AAEu8DGjBeocnwQ4xkyp48GOoC0kZshwf30"
 bot = telebot.TeleBot(TOKEN)
 
 user_data = {}
 STEPS = ['district', 'room', 'area', 'budget']
+STEP_MESSAGES = {
+    'district': "Вибору району 📍",
+    'room': "Вибору кількості кімнат 🔑",
+    'area': "Вибору площі 📐",
+    'budget': "Вибору бюджету 💵"
+}
 
 
 def ensure_user_data(chat_id):
     if chat_id not in user_data:
         user_data[chat_id] = {'current_step': 'district'}
+
 
 def get_prev_step(chat_id):
     current_index = STEPS.index(user_data[chat_id]['current_step'])
@@ -60,7 +66,7 @@ def send_filtered_properties(bot, chat_id, filtered_properties):
 
     bot.send_message(
         chat_id,
-        "Це всі знайдені квартири за вашими критеріями.",
+        "✅ Це всі знайдені квартири за вашими критеріями.",
         reply_markup=create_main_menu_keyboard()
     )
 
@@ -125,11 +131,16 @@ def handle_choice(chat_id, data, message_id):
     selection = data.split('_')[1]
     user_data[chat_id][current_step] = selection
 
+    emoji_mapping = {
+        'district': '📍',
+        'room': '🔑'
+    }
+
     room_messages = {
-        '1': '1-кімнатну',
-        '2': '2-кімнатну',
-        '3': '3-кімнатну',
-        '4': '4-кімнатну'
+        '1': '1 кімната',
+        '2': '2 кімнати',
+        '3': '3 кімнати',
+        '4': '4 кімнати'
     }
 
     selected_message = room_messages.get(selection, selection)
@@ -138,6 +149,8 @@ def handle_choice(chat_id, data, message_id):
     if next_step_index < len(STEPS):
         next_step = STEPS[next_step_index]
         user_data[chat_id]['current_step'] = next_step
+
+        emoji = emoji_mapping.get(current_step, '')
         next_message = {
             "district": "Вкажіть кількість кімнат, яка Вам потрібна 🏠 ",
             "room": "Чудово, тепер вкажіть площу в квадратних метрах 📏",
@@ -146,7 +159,8 @@ def handle_choice(chat_id, data, message_id):
         bot.edit_message_text(
             chat_id=chat_id,
             message_id=message_id,
-            text=f"Вибрано {selected_message}. {next_message[current_step]}",
+            text=f"Вибрано: {selected_message} {emoji} \n"
+                 f" {next_message[current_step]}",
             reply_markup=get_keyboard(next_step)
         )
     else:
@@ -173,7 +187,8 @@ def handle_query(call):
         prev_step = get_prev_step(chat_id)
         user_data[chat_id]['current_step'] = prev_step
         bot.edit_message_text(chat_id=chat_id, message_id=call.message.message_id,
-                              text=f"Повертаємось на крок: {prev_step}", reply_markup=get_keyboard(prev_step))
+                              text=f"🔴 Повертаємось на крок: {STEP_MESSAGES[prev_step]} ",
+                              reply_markup=get_keyboard(prev_step))
     else:
         handle_choice(chat_id, data, call.message.message_id)
 

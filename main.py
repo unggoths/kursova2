@@ -10,7 +10,7 @@ DATABASE_URL = "sqlite:///properties.db"
 engine = create_engine(DATABASE_URL)
 Session = sessionmaker(bind=engine)
 
-TOKEN = "8104879861:AAEu8DGjBeocnwQ4xkyp48GOoC0kZshwf30"
+TOKEN = "8104879861:AAEu8DGjBeocnwQ4xkyp48GOoC0kZshwf30"  # Змініть на свій токен
 bot = telebot.TeleBot(TOKEN)
 
 user_data = {}
@@ -18,7 +18,7 @@ STEPS = ['district', 'room', 'area', 'budget']
 STEP_MESSAGES = {
     'district': "Вибору району 📍",
     'room': "Вибору кількості кімнат 🔑",
-    'area': "Вибору площі 📐",
+    'area': "Введення площі 📐",
     'budget': "Вибору бюджету 💵"
 }
 
@@ -45,7 +45,7 @@ def send_filtered_properties(bot, chat_id, filtered_properties):
     for prop in filtered_properties:
         caption = (f"📝 Опис: {prop.description}\n"
                    f"📍 Район: {prop.district}\n"
-                   f"🛏️ Кімнат: {prop.rooms}\n"
+                   f"🔑 Кімнат: {prop.rooms}\n"
                    f"📐 Площа: {prop.area} кв.м\n"
                    f"💵 Бюджет: {prop.budget} $\n"
                    f"📞 Контактний номер: {prop.phone_number}\n")
@@ -133,7 +133,15 @@ def handle_choice(chat_id, data, message_id):
 
     emoji_mapping = {
         'district': '📍',
-        'room': '🔑'
+        'room': '🔑',
+        'area': '📐',
+        'budget': '💵'
+    }
+
+    step_messages = {
+        'district': "Тепер вкажіть скільки кімнат Вам потрібно 🔑",
+        'room': "Чудово, тепер вкажіть площу помешкання, яка Вам потрібна 📐",
+        'area': "Тепер вкажіть Ваш бюджет 💵"
     }
 
     room_messages = {
@@ -151,23 +159,22 @@ def handle_choice(chat_id, data, message_id):
         user_data[chat_id]['current_step'] = next_step
 
         emoji = emoji_mapping.get(current_step, '')
-        next_message = {
-            "district": "Вкажіть кількість кімнат, яка Вам потрібна 🏠 ",
-            "room": "Чудово, тепер вкажіть площу в квадратних метрах 📏",
-            "area": "Тепер вкажіть Ваш бюджет 💸"
-        }
+        next_step_message = step_messages.get(current_step, STEP_MESSAGES[next_step])
+
         bot.edit_message_text(
             chat_id=chat_id,
             message_id=message_id,
-            text=f"Вибрано: {selected_message} {emoji} \n"
-                 f" {next_message[current_step]}",
-            reply_markup=get_keyboard(next_step)
+            text=f"Вибрано: {selected_message} {emoji}\n{next_step_message}",
+            reply_markup=get_keyboard(next_step) if next_step in ['district', 'room', 'budget'] else None
         )
     else:
         session = Session()
         filtered_properties = filter_properties(session, user_data[chat_id])
         send_filtered_properties(bot, chat_id, filtered_properties)
         session.close()
+
+
+
 
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -187,7 +194,7 @@ def handle_query(call):
         prev_step = get_prev_step(chat_id)
         user_data[chat_id]['current_step'] = prev_step
         bot.edit_message_text(chat_id=chat_id, message_id=call.message.message_id,
-                              text=f"🔴 Повертаємось на крок: {STEP_MESSAGES[prev_step]} ",
+                              text=f"🔴 Повертаємось на крок: {STEP_MESSAGES[prev_step]}",
                               reply_markup=get_keyboard(prev_step))
     else:
         handle_choice(chat_id, data, call.message.message_id)
@@ -220,7 +227,8 @@ def handle_area(message):
 
     user_data[chat_id]['area'] = area
     user_data[chat_id]['current_step'] = 'budget'
-    bot.send_message(chat_id, "📏 Площа помешкання вказана. Тепер вкажіть Ваш бюджет.",
+    bot.send_message(chat_id, "📐 Площа помешкання вказана.\n"
+                              "Тепер вкажіть Ваш бюджет 💵",
                      reply_markup=create_budget_keyboard())
 
 

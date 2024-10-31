@@ -140,7 +140,8 @@ def handle_choice(chat_id, data, message_id):
 
     step_messages = {
         'district': "Тепер вкажіть скільки кімнат Вам потрібно 🔑",
-        'room': "Чудово, тепер вкажіть площу помешкання, яка Вам потрібна 📐",
+        'room': "Чудово, тепер вкажіть площу помешкання, яка Вам потрібна 📐\n\n"
+                "🔴 Примітка: Введіть площу цілим числом, і бот підбере квартири з такою ж або меншою площею.",
         'area': "Тепер вкажіть Ваш бюджет 💵"
     }
 
@@ -174,14 +175,10 @@ def handle_choice(chat_id, data, message_id):
         session.close()
 
 
-
-
-
 @bot.callback_query_handler(func=lambda call: True)
 def handle_query(call):
     chat_id = call.message.chat.id
     data = call.data
-
     ensure_user_data(chat_id)
 
     if data == 'main_menu':
@@ -222,12 +219,12 @@ def handle_area(message):
     area = message.text
 
     if not area.isdigit():
-        bot.send_message(chat_id, "🤨 Будь ласка, введіть коректне значення площі житла.")
+        bot.send_message(chat_id, "🤨 Будь ласка, введіть ціле число для значення площі житла.")
         return
 
     user_data[chat_id]['area'] = area
     user_data[chat_id]['current_step'] = 'budget'
-    bot.send_message(chat_id, "📐 Площа помешкання вказана.\n"
+    bot.send_message(chat_id, "Площа помешкання вказана 📐\n"
                               "Тепер вкажіть Ваш бюджет 💵",
                      reply_markup=create_budget_keyboard())
 

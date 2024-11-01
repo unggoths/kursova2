@@ -3,7 +3,7 @@ import telebot
 from telebot import types
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from models import Property
+from models import Property, District, Contact, PropertyContact, Photo  # Import necessary models
 from keyboards import create_district_keyboard, get_keyboard, create_budget_keyboard, create_main_menu_keyboard
 
 DATABASE_URL = "sqlite:///properties.db"
@@ -33,7 +33,7 @@ def get_prev_step(chat_id):
     return STEPS[max(0, current_index - 1)]
 
 
-def send_filtered_properties(bot, chat_id, filtered_properties):
+def send_filtered_properties(bot, chat_id, filtered_properties, session):
     if not filtered_properties:
         bot.send_message(
             chat_id,
@@ -43,26 +43,38 @@ def send_filtered_properties(bot, chat_id, filtered_properties):
         return
 
     for prop in filtered_properties:
+        contact_query = session.query(Contact.phone_number).join(PropertyContact).filter(
+            PropertyContact.property_id == prop.property_id)
+        contact_number = contact_query.first().phone_number if contact_query.count() > 0 else "Немає контактів"
+
         caption = (f"📝 Опис: {prop.description}\n"
-                   f"📍 Район: {prop.district}\n"
+                   f"📍 Район: {prop.district.district_name}\n"
                    f"🔑 Кімнат: {prop.rooms}\n"
                    f"📐 Площа: {prop.area} кв.м\n"
                    f"💵 Бюджет: {prop.budget} $\n"
-                   f"📞 Контактний номер: {prop.phone_number}\n")
+                   f"📞 Контактний номер: {contact_number}\n")
 
-        photos = prop.photos.split('|')
-        media_group = []
-        for index, photo in enumerate(photos):
-            if os.path.exists(photo):
-                if index == 0:
-                    media_group.append(types.InputMediaPhoto(open(photo, 'rb'), caption=caption))
+        photos = prop.photos if prop.photos else []
+        files = []
+        media_group = []  # Initialize media_group as an empty list
+        try:
+            for index, photo in enumerate(photos):
+                photo_path = getattr(photo, 'photo_path', None)
+                if photo_path and os.path.exists(photo_path):
+                    file = open(photo_path, 'rb')
+                    files.append(file)
+                    if index == 0:
+                        media_group.append(types.InputMediaPhoto(file, caption=caption))
+                    else:
+                        media_group.append(types.InputMediaPhoto(file))
                 else:
-                    media_group.append(types.InputMediaPhoto(open(photo, 'rb')))
-            else:
-                bot.send_message(chat_id, "[Фото недоступне ☹️]")
+                    bot.send_message(chat_id, "[Фото недоступне ☹️]")
 
-        if media_group:
-            bot.send_media_group(chat_id, media=media_group)
+            if media_group:
+                bot.send_media_group(chat_id, media=media_group)
+        finally:
+            for file in files:
+                file.close()
 
     bot.send_message(
         chat_id,
@@ -73,39 +85,37 @@ def send_filtered_properties(bot, chat_id, filtered_properties):
 
 def apply_filters(query, filter_name, filter_value):
     if filter_name == 'district':
-        district = filter_value.strip()
-        return query.filter(Property.district.ilike(district))
+        district_name = filter_value.strip()
+        query = query.join(District).filter(District.district_name.ilike(f"%{district_name}%"))
     elif filter_name == 'room':
-        rooms = int(filter_value.split('-')[0])
-        return query.filter(Property.rooms == rooms)
+        rooms = int(filter_value)
+        query = query.filter(Property.rooms == rooms)
     elif filter_name == 'area':
-        if filter_value.isdigit():
-            max_area = int(filter_value)
-            return query.filter(Property.area <= max_area)
-        elif 'від' in filter_value:
-            min_area = int(filter_value.split(' ')[1])
-            return query.filter(Property.area >= min_area)
+        try:
+            if 'до ' in filter_value:
+                max_area = float(filter_value.replace("до ", "").replace(",", "").strip())
+                query = query.filter(Property.area <= max_area)
+            elif 'від ' in filter_value:
+                min_area = float(filter_value.replace("від ", "").replace(",", "").strip())
+                query = query.filter(Property.area >= min_area)
+            else:
+                max_area = float(filter_value)
+                query = query.filter(Property.area <= max_area)
+        except ValueError:
+            pass  # Handle the case where the conversion to float fails
     elif filter_name == 'budget':
-        filter_value = filter_value.lower().strip()
-        if filter_value.startswith('до'):
-            try:
-                budget_value = int(filter_value.split(' ')[1])
-                return query.filter(Property.budget <= budget_value)
-            except ValueError:
-                pass
-        elif filter_value.startswith('від'):
-            try:
-                budget_value = int(filter_value.split(' ')[1])
-                return query.filter(Property.budget >= budget_value)
-            except ValueError:
-                pass
-        else:
-            try:
-                budget_value = int(filter_value.split(' ')[1])
-                return query.filter(Property.budget <= budget_value)
-            except ValueError:
-                pass
-
+        try:
+            if 'до ' in filter_value:
+                max_budget = float(filter_value.replace("до ", "").replace(",", "").strip())
+                query = query.filter(Property.budget <= max_budget)
+            elif 'від ' in filter_value:
+                min_budget = float(filter_value.replace("від ", "").replace(",", "").strip())
+                query = query.filter(Property.budget >= min_budget)
+            else:
+                max_budget = float(filter_value)
+                query = query.filter(Property.budget <= max_budget)
+        except ValueError:
+            pass  # Handle the case where the conversion to float fails
     return query
 
 
@@ -159,7 +169,7 @@ def handle_choice(chat_id, data, message_id):
         next_step = STEPS[next_step_index]
         user_data[chat_id]['current_step'] = next_step
 
-        emoji = emoji_mapping.get(current_step, '')
+        emoji = emoji_mapping.get(current_step, '')  # Update emoji
         next_step_message = step_messages.get(current_step, STEP_MESSAGES[next_step])
 
         bot.edit_message_text(
@@ -171,7 +181,7 @@ def handle_choice(chat_id, data, message_id):
     else:
         session = Session()
         filtered_properties = filter_properties(session, user_data[chat_id])
-        send_filtered_properties(bot, chat_id, filtered_properties)
+        send_filtered_properties(bot, chat_id, filtered_properties, session)
         session.close()
 
 

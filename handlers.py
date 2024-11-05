@@ -72,44 +72,7 @@ def handle_start(message, bot):
     bot.send_message(chat_id, welcome_message, reply_markup=create_district_keyboard())
 
 
-def handle_test(message, bot):
-    bot.send_message(message.chat.id, "Тестове повідомлення.")
 
-
-def create_district_keyboard():
-    keyboard = types.InlineKeyboardMarkup()
-    districts = ["Сихівський район 🌳", "Галицький район 🏰", "Залізничний район 🚉", "Франківський район 🏞️",
-                 "Личаківський район 🍀", "Шевченківський район 🌆"]
-    buttons = [types.InlineKeyboardButton(text=district, callback_data=f'district_{district}') for district in
-               districts]
-    keyboard.add(*buttons)
-    return keyboard
-
-
-def create_room_keyboard():
-    keyboard = types.InlineKeyboardMarkup()
-    rooms = ["1-кімнатна", "2-кімнатна", "3-кімнатна", "4-кімнатна"]
-    buttons = [types.InlineKeyboardButton(text=room, callback_data=f'room_{room}') for room in rooms]
-    keyboard.add(*buttons)
-    return keyboard
-
-
-def create_area_keyboard():
-    keyboard = types.InlineKeyboardMarkup()
-    areas = ["до 30 кв.м", "до 40 кв.м", "до 50 кв.м", "до 70 кв.м", "до 90 кв.м", "до 110 кв.м", "до 130 кв.м",
-             "до 150 кв.м", "до 170 кв.м", "до 190 кв.м", "від 200 кв.м"]
-    buttons = [types.InlineKeyboardButton(text=area, callback_data=f'area_{area}') for area in areas]
-    keyboard.add(*buttons)
-    return keyboard
-
-
-def create_budget_keyboard():
-    keyboard = types.InlineKeyboardMarkup()
-    budgets = ["до 400$", "до 500$", "до 600$", "до 700$", "до 800$", "до 900$", "до 1000$", "до 1100$",
-               "до 1200$", "до 1300$", "до 1400$", "від 1400$"]
-    buttons = [types.InlineKeyboardButton(text=budget, callback_data=f'budget_{budget}') for budget in budgets]
-    keyboard.add(*buttons)
-    return keyboard
 
 
 def get_keyboard(step):

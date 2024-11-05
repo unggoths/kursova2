@@ -1,92 +1,49 @@
-import os
-from telebot import TeleBot, types
 import properties
+from models import Contact, PropertyContact
+from keyboards import create_district_keyboard, get_keyboard_by_step, create_budget_keyboard, create_main_menu_keyboard
 
 user_data = {}
 
 
-def get_prev_step(chat_id):
-    current_index = properties.STEPS.index(user_data[chat_id]['current_step'])
-    return properties.STEPS[max(0, current_index - 1)]
+def register_handlers(bot):
+    @bot.callback_query_handler(func=lambda call: True)
+    def handle_query(call):
+        chat_id = call.message.chat.id
+        data = call.data
+        properties.ensure_user_data(chat_id, user_data)
 
+        if data == 'main_menu':
+            user_data[chat_id] = {'current_step': 'district'}
+            welcome_message = ("👋 Привіт! Ласкаво просимо до нашого ріелторського бота!\n"
+                               "Ми тут, щоб допомогти Вам знайти ідеальне житло в ідеальному місті\n\n"
+                               "В якому районі Ви плануєте винаймати квартиру? 🤔")
+            bot.send_message(chat_id, welcome_message, reply_markup=create_district_keyboard())
+        elif data == 'back':
+            prev_step = properties.get_prev_step(chat_id, user_data)
+            user_data[chat_id]['current_step'] = prev_step
+            bot.edit_message_text(chat_id=chat_id, message_id=call.message.message_id,
+                                  text=f"🔴 Повертаємось на крок: {properties.STEP_MESSAGES[prev_step]}",
+                                  reply_markup=get_keyboard_by_step(prev_step))
+        else:
+            properties.handle_choice(bot, chat_id, data, call.message.message_id, user_data)
 
-def send_filtered_properties(bot, chat_id, filtered_properties):
-    if not filtered_properties:
-        bot.send_message(chat_id, "На жаль, за вашими критеріями нічого не знайдено. ☹️")
-        return
-    for property in filtered_properties:
-        message = (f"Опис: {property['description']}\n"
-                   f"Район: {property['district']}\n"
-                   f"Кімнат: {property['rooms']}\n"
-                   f"Площа: {property['area']}м²\n"
-                   f"Бюджет: ${property['budget']}\n"
-                   f"Контактний номер: {property['phone_number']}\n")
-        bot.send_message(chat_id, message)
+    @bot.message_handler(commands=['start'])
+    def handle_start(message):
+        chat_id = message.chat.id
+        properties.ensure_user_data(chat_id, user_data)
+        user_data[chat_id] = {'current_step': 'district'}
+        welcome_message = ("👋 Привіт! Ласкаво просимо до нашого ріелторського бота!\n"
+                           "Ми тут, щоб допомогти Вам знайти ідеальне житло в ідеальному місті\n\n"
+                           "В якому районі Ви плануєте винаймати квартиру? 🤔")
+        bot.send_message(chat_id, welcome_message, reply_markup=create_district_keyboard())
 
-        media_group = []
-        for photo in property['photos']:
-            if os.path.exists(photo):
-                media_group.append(types.InputMediaPhoto(open(photo, 'rb')))
-            else:
-                bot.send_message(chat_id, "[Фото недоступне]")
+    @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('current_step') == 'area')
+    def handle_area(message):
+        chat_id = message.chat.id
+        area = message.text
 
-        if media_group:
-            bot.send_media_group(chat_id, media=media_group)
+        if not area.isdigit():
+            bot.send_message(chat_id, "🤨 Будь ласка, введіть ціле число для значення площі житла.")
+            return
 
-
-def handle_choice(bot, chat_id, data, message_id):
-    current_step = user_data[chat_id]['current_step']
-    user_data[chat_id][current_step] = data.split('_')[1]
-
-    next_step_index = properties.STEPS.index(current_step) + 1
-    if next_step_index < len(properties.STEPS):
-        next_step = properties.STEPS[next_step_index]
-        user_data[chat_id]['current_step'] = next_step
-        bot.edit_message_text(chat_id=chat_id, message_id=message_id,
-                              text=f"Вибрано {data.split('_')[1]}. Ваш наступний вибір:",
-                              reply_markup=get_keyboard(next_step))
-    else:
-        filtered_properties = properties.filter_properties(chat_id, user_data)
-        send_filtered_properties(bot, chat_id, filtered_properties)
-
-
-def handle_query(call, bot):
-    chat_id = call.message.chat.id
-    data = call.data
-    if data == 'back':
-        prev_step = get_prev_step(chat_id)
-        user_data[chat_id]['current_step'] = prev_step
-        bot.edit_message_text(chat_id=chat_id, message_id=call.message.message_id,
-                              text=f"Повертаємось на крок: {prev_step}", reply_markup=get_keyboard(prev_step))
-    else:
-        handle_choice(bot, chat_id, data, call.message.message_id)
-
-
-def handle_start(message, bot):
-    chat_id = message.chat.id
-    user_data[chat_id] = {'current_step': 'district'}
-    welcome_message = ("Привіт!👋\n"
-                       "Ласкаво просимо до нашого ріелторського бота!🏡\n"
-                       "Ми тут, щоб допомогти Вам знайти ідеальне житло в ідеальному місті.\n"
-                       "В якому районі Ви плануєте мешкати?🤔")
-    bot.send_message(chat_id, welcome_message, reply_markup=create_district_keyboard())
-
-
-
-
-
-def get_keyboard(step):
-    keyboard = types.InlineKeyboardMarkup()
-    if step != 'district':
-        keyboard.add(types.InlineKeyboardButton(text="Назад", callback_data="back"))
-
-    if step == 'district':
-        return create_district_keyboard()
-    elif step == 'room':
-        return create_room_keyboard()
-    elif step == 'area':
-        return create_area_keyboard()
-    elif step == 'budget':
-        return create_budget_keyboard()
-
-    return keyboard
+        properties.handle_area_step(bot, chat_id, area, user_data)

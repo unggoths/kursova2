@@ -3,13 +3,16 @@ from telebot import types
 
 def create_district_keyboard():
     keyboard = types.InlineKeyboardMarkup()
-    districts = ["Сихівський район", "Галицький район", "Залізничний район", "Франківський район", "Личаківський район",
+    districts = ["Сихівський район",
+                 "Галицький район",
+                 "Залізничний район",
+                 "Франківський район",
+                 "Личаківський район",
                  "Шевченківський район"]
     buttons = [types.InlineKeyboardButton(text=district, callback_data=f'district_{district}') for district in
                districts]
     keyboard.add(*buttons)
     return keyboard
-
 
 def create_main_back_menu_keyboard():
     keyboard = types.InlineKeyboardMarkup()
@@ -25,7 +28,6 @@ def create_main_menu_keyboard():
     keyboard.add(button)
     return keyboard
 
-
 def create_room_keyboard():
     keyboard = types.InlineKeyboardMarkup()
     rooms = ["1", "2", "3", "4"]
@@ -35,18 +37,17 @@ def create_room_keyboard():
     keyboard.add(back_button)
     return keyboard
 
-
 def create_budget_keyboard():
     keyboard = types.InlineKeyboardMarkup()
-    budgets = ["до 400", "до 500", "до 600", "до 700", "до 800", "до 900", "до 1000", "від 1000"]
+    budgets = ["до 400", "до 500", "до 600", "до 700", "до 800",
+               "до 900", "до 1000", "від 1000"]
     buttons = [types.InlineKeyboardButton(text=budget + " $", callback_data=f'budget_{budget}') for budget in budgets]
     back_button = types.InlineKeyboardButton(text="Назад", callback_data='back')
     keyboard.add(*buttons)
     keyboard.add(back_button)
     return keyboard
 
-
-def get_keyboard(step):
+def get_keyboard_by_step(step):
     if step == 'district':
         return create_district_keyboard()
     elif step == 'room':
@@ -58,3 +59,5 @@ def get_keyboard(step):
         return keyboard
     elif step == 'budget':
         return create_budget_keyboard()
+
+    return None

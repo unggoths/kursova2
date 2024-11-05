@@ -1,16 +1,14 @@
-from sqlalchemy import Column, Integer, String, Float, Text, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, String, Float, Text, ForeignKey, create_engine
+from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
-
 
 class District(Base):
     __tablename__ = 'districts'
     district_id = Column(Integer, primary_key=True)
     district_name = Column(String, unique=True, nullable=False)
     properties = relationship("Property", back_populates="district")
-
 
 class Property(Base):
     __tablename__ = 'properties'
@@ -24,13 +22,11 @@ class Property(Base):
     photos = relationship("Photo", back_populates="property")
     contacts = relationship("PropertyContact", back_populates="property")
 
-
 class Contact(Base):
     __tablename__ = 'contacts'
     contact_id = Column(Integer, primary_key=True)
     phone_number = Column(String, unique=True)
     properties = relationship("PropertyContact", back_populates="contact")
-
 
 class PropertyContact(Base):
     __tablename__ = 'property_contacts'
@@ -39,10 +35,20 @@ class PropertyContact(Base):
     property = relationship("Property", back_populates="contacts")
     contact = relationship("Contact", back_populates="properties")
 
-
 class Photo(Base):
     __tablename__ = 'photos'
     photo_id = Column(Integer, primary_key=True)
     property_id = Column(Integer, ForeignKey('properties.property_id'))
     photo_path = Column(Text)
     property = relationship("Property", back_populates="photos")
+
+
+DATABASE_URL = "sqlite:///properties.db"
+engine = create_engine(DATABASE_URL)
+Session = sessionmaker(bind=engine)
+
+def init_db():
+    Base.metadata.create_all(engine)
+
+if __name__ == '__main__':
+    init_db()

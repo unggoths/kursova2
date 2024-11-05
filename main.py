@@ -84,39 +84,47 @@ def send_filtered_properties(bot, chat_id, filtered_properties, session):
 
 
 def apply_filters(query, filter_name, filter_value):
-    if filter_name == 'district':
-        district_name = filter_value.strip()
-        query = query.join(District).filter(District.district_name.ilike(f"%{district_name}%"))
-    elif filter_name == 'room':
-        rooms = int(filter_value)
-        query = query.filter(Property.rooms == rooms)
-    elif filter_name == 'area':
-        try:
-            if 'до ' in filter_value:
-                max_area = float(filter_value.replace("до ", "").replace(",", "").strip())
-                query = query.filter(Property.area <= max_area)
-            elif 'від ' in filter_value:
-                min_area = float(filter_value.replace("від ", "").replace(",", "").strip())
-                query = query.filter(Property.area >= min_area)
-            else:
-                max_area = float(filter_value)
-                query = query.filter(Property.area <= max_area)
-        except ValueError:
-            pass  # Handle the case where the conversion to float fails
-    elif filter_name == 'budget':
-        try:
-            if 'до ' in filter_value:
-                max_budget = float(filter_value.replace("до ", "").replace(",", "").strip())
-                query = query.filter(Property.budget <= max_budget)
-            elif 'від ' in filter_value:
-                min_budget = float(filter_value.replace("від ", "").replace(",", "").strip())
-                query = query.filter(Property.budget >= min_budget)
-            else:
-                max_budget = float(filter_value)
-                query = query.filter(Property.budget <= max_budget)
-        except ValueError:
-            pass  # Handle the case where the conversion to float fails
-    return query
+    # Видалення пробілів з filter_value
+    filter_value = filter_value.strip()
+
+    filters = {
+        'district': lambda: query.join(District).filter(District.district_name.ilike(f"%{filter_value}%")),
+        'room': lambda: query.filter(Property.rooms == int(filter_value)),
+        'area': lambda: handle_area_filter(query, filter_value),
+        'budget': lambda: handle_budget_filter(query, filter_value)
+    }
+
+    return filters.get(filter_name, lambda: query)()
+
+
+def handle_area_filter(query, filter_value):
+    try:
+        if 'до ' in filter_value:
+            max_area = float(filter_value.replace("до ", "").replace(",", "").strip())
+            return query.filter(Property.area <= max_area)
+        elif 'від ' in filter_value:
+            min_area = float(filter_value.replace("від ", "").replace(",", "").strip())
+            return query.filter(Property.area >= min_area)
+        else:
+            max_area = float(filter_value)
+            return query.filter(Property.area <= max_area)
+    except ValueError:
+        return query
+
+
+def handle_budget_filter(query, filter_value):
+    try:
+        if 'до ' in filter_value:
+            max_budget = float(filter_value.replace("до ", "").replace(",", "").strip())
+            return query.filter(Property.budget <= max_budget)
+        elif 'від ' in filter_value:
+            min_budget = float(filter_value.replace("від ", "").replace(",", "").strip())
+            return query.filter(Property.budget >= min_budget)
+        else:
+            max_budget = float(filter_value)
+            return query.filter(Property.budget <= max_budget)
+    except ValueError:
+        return query
 
 
 def filter_properties(session, user_data):
@@ -216,11 +224,6 @@ def handle_start(message):
                        "Ми тут, щоб допомогти Вам знайти ідеальне житло в ідеальному місті\n\n"
                        "В якому районі Ви плануєте винаймати квартиру? 🤔")
     bot.send_message(chat_id, welcome_message, reply_markup=create_district_keyboard())
-
-
-@bot.message_handler(commands=['test'])
-def handle_test(message):
-    bot.send_message(message.chat.id, "Тестове повідомлення.")
 
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('current_step') == 'area')

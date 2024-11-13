@@ -5,9 +5,7 @@ from keyboards import create_district_keyboard, get_keyboard_by_step, create_bud
 
 user_data = {}
 
-
 def register_handlers(bot):
-    # Налаштування команд-підказок для користувачів
     bot.set_my_commands([
         telebot.types.BotCommand("start", "Розпочати роботу з ботом")
     ])
